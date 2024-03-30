@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define FILENAME "measurements.txt"
 #define BSIZE 1<<10
 #define SEED 0x12345678
 #define HCAP 4096
@@ -44,10 +43,28 @@ double str_to_double(char  *pos) {
     }
 }
 
-int main() {
+void print_json(struct result *results, int nresults) {
+    putchar('{');
+    for(int i=0; i<nresults; i++) {
+        printf("%s=%.1f/%.1f/%.1f%s", results[i].city, results[i].min, 
+                results[i].max, results[i].sum/results[i].count, 
+                i < nresults-1 ? ", " : "");
+    }
+    puts("}");
+}
+
+void main(int argc, const char **argv) {
+    const char *file;
+    if (argc == 2) {
+        file = argv[1];
+    } else {
+        printf("usage ./main.out <file>\n");
+        exit(EXIT_FAILURE);
+    }
+    
     FILE *fptr;
     
-    fptr = fopen(FILENAME, "r");
+    fptr = fopen(file, "r");
     char buffer[BSIZE];
     
     struct result results[450];
@@ -61,11 +78,12 @@ int main() {
         *pos = 0x0;
         
         int h = hash(buffer, SEED) & (HCAP-1);
-        while (map[h] != -1 && strcmp(results[map[h]].city, buffer) != 0) {
+        int c = map[h];
+        while (c != -1 && strcmp(results[c].city, buffer) != 0) {
             h = (h + 1) & (HCAP - 1);
+            c = map[h];
         }
 
-        int c = map[h];
         double curr = str_to_double(pos+1);
 
         if(c < 0) {
@@ -92,11 +110,5 @@ int main() {
 
     qsort(results, (size_t)nresults, sizeof(*results), cmp);
 
-    putchar('{');
-    for(int i=0; i<nresults; i++) {
-        printf("%s=%.1f/%.1f/%.1f%s", results[i].city, results[i].min, 
-                results[i].max, results[i].sum/results[i].count, 
-                i < nresults-1 ? ", " : "");
-    }
-    puts("}");
+    print_json(results, nresults);
 }

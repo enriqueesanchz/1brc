@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define FILENAME "measurements.txt"
 #define BSIZE 1<<10
 
 struct result {
@@ -25,10 +24,18 @@ int cmp(const void *ptr_a, const void *ptr_b) {
     return strcmp(((struct result *)ptr_a)->city, ((struct result *)ptr_b)->city);
 }
 
-int main() {
+int main(int argc, const char **argv) {
+    const char *file;
+    if (argc == 2) {
+        file = argv[1];
+    } else {
+        printf("use ./main.out <file>\n");
+        exit(EXIT_FAILURE);
+    }
+    
     FILE *fptr;
     
-    fptr = fopen(FILENAME, "r");
+    fptr = fopen(file, "r");
     char buffer[BSIZE];
     
     struct result results[450];

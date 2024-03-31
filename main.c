@@ -101,16 +101,16 @@ void main(int argc, const char **argv) {
     
             int h = hash(city, SEED) & (HCAP-1);
             int c = map[h];
-            while (c != -1 && strcmp(results[c].city, city) != 0) {
+            while (c != -1 && memcmp(results[c].city, city, (size_t)delim) != 0) {
                 h = (h + 1) & (HCAP - 1);
                 c = map[h];
             }
 
             double curr;
-            pos = parse_pointer(&curr, pos+delim+1); // next to ; TODO: optimize with \n
+            pos = parse_pointer(&curr, pos+delim+1);
 
             if(c < 0) {
-                strcpy(results[nresults].city, city);
+                memcpy(results[nresults].city, city, (size_t)delim);
                 results[nresults].min = curr;
                 results[nresults].max = curr;
                 results[nresults].sum = curr;

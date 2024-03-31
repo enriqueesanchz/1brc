@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define BSIZE 1<<10
+#define BSIZE (1<<20) * 64
 #define SEED 0x12345678
 #define HCAP 4096
 
@@ -27,7 +27,7 @@ int hash(const char* str, int h)
     return h;
 }
 
-double str_to_double(char  *pos) {
+char *parse_pointer(double *d, char *pos) {
     double mod;
     if(*pos == '-') {
         mod = -1.0;
@@ -37,9 +37,11 @@ double str_to_double(char  *pos) {
     }
 
     if(*(pos+1) == '.') {
-        return ((double)*pos + *(pos+2) * 0.1 - 1.1 * '0') * mod; //'0'==48
+        *d = ((double)*pos + *(pos+2) * 0.1 - 1.1 * '0') * mod; //'0'==48
+        return pos+4;
     } else {
-        return (((double)*pos) * 10 + (double)*pos + ((double)*(pos+3)) * 0.1 - 11.1 * '0') * mod;
+        *d = (((double)*pos) * 10 + (double)*(pos+1) + ((double)*(pos+3)) * 0.1 - 11.1 * '0') * mod;
+        return pos+5;
     }
 }
 
@@ -58,14 +60,13 @@ void main(int argc, const char **argv) {
     if (argc == 2) {
         file = argv[1];
     } else {
-        printf("usage ./main.out <file>\n");
+        printf("use ./main.out <file>\n");
         exit(EXIT_FAILURE);
     }
     
     FILE *fptr;
     
     fptr = fopen(file, "r");
-    char buffer[BSIZE];
     
     struct result results[450];
     int nresults = 0;
@@ -73,42 +74,64 @@ void main(int argc, const char **argv) {
     int map[HCAP]; // map of indexes
     memset(map, -1, HCAP*sizeof(int)); // index cannot be -1
 
-    while(fgets(buffer, BSIZE, fptr)) {
-        char *pos = strchr(buffer, ';');
-        *pos = 0x0;
-        
-        int h = hash(buffer, SEED) & (HCAP-1);
-        int c = map[h];
-        while (c != -1 && strcmp(results[c].city, buffer) != 0) {
-            h = (h + 1) & (HCAP - 1);
-            c = map[h];
+    char *buffer = malloc(BSIZE);
+    size_t ret;
+
+    while(1) {
+        ret = fread(buffer, sizeof(char), BSIZE, fptr);
+        if(ret == 0) {
+            break;
         }
 
-        double curr = str_to_double(pos+1);
-
-        if(c < 0) {
-            strcpy(results[nresults].city, buffer);
-            results[nresults].min = curr;
-            results[nresults].max = curr;
-            results[nresults].sum = curr;
-            results[nresults].count = 1;
-            map[h] = nresults;
-            nresults++;
-        } else {
-            if(curr < results[c].min) {
-                results[c].min = curr;
-            }
-            if(curr > results[c].max) {
-                results[c].max = curr;
-            }
-            results[c].sum += curr;
-            results[c].count += 1;
+        int rewind = 0;
+        while (buffer[ret-1] != '\n') {
+            rewind--;
+            ret--;
         }
+        fseek(fptr, rewind, SEEK_CUR);
 
+        char *pos = buffer;
+        while(pos < &buffer[ret]) {
+            int delim = 0;
+            while(*(pos+delim) != ';') {
+                delim++;
+            }
+            *(pos+delim) = 0x0;
+            char *city = pos;
+    
+            int h = hash(city, SEED) & (HCAP-1);
+            int c = map[h];
+            while (c != -1 && strcmp(results[c].city, city) != 0) {
+                h = (h + 1) & (HCAP - 1);
+                c = map[h];
+            }
+
+            double curr;
+            pos = parse_pointer(&curr, pos+delim+1); // next to ; TODO: optimize with \n
+
+            if(c < 0) {
+                strcpy(results[nresults].city, city);
+                results[nresults].min = curr;
+                results[nresults].max = curr;
+                results[nresults].sum = curr;
+                results[nresults].count = 1;
+                map[h] = nresults;
+                nresults++;
+            } else {
+                if(curr < results[c].min) {
+                    results[c].min = curr;
+                }
+                if(curr > results[c].max) {
+                    results[c].max = curr;
+                }
+                results[c].sum += curr;
+                results[c].count += 1;
+            }
+        }
     }
+    free(buffer);
     fclose(fptr); 
 
     qsort(results, (size_t)nresults, sizeof(*results), cmp);
-
     print_json(results, nresults);
 }

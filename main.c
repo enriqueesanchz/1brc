@@ -16,15 +16,13 @@ int cmp(const void *ptr_a, const void *ptr_b) {
     return strcmp(((struct result *)ptr_a)->city, ((struct result *)ptr_b)->city);
 }
 
-int hash(const char* str, int h)
+static const char *hash(int *len, unsigned int *h, const char* str)
 {
-    //MurmurOAAT_32 hash function
-    for (; *str; ++str) {
-        h ^= *str;
-        h *= 0x5bd1e995;
-        h ^= h >> 15;
+    for (; *(str+*len)!=';'; (*len)++) {
+        *h = *h * 31 + *(str+*len);
     }
-    return h;
+    *h = *h & (HCAP-1);
+    return str+*len+1;
 }
 
 char *parse_pointer(double *d, char *pos) {
@@ -46,13 +44,16 @@ char *parse_pointer(double *d, char *pos) {
 }
 
 void print_json(struct result *results, int nresults) {
-    putchar('{');
-    for(int i=0; i<nresults; i++) {
-        printf("%s=%.1f/%.1f/%.1f%s", results[i].city, results[i].min, 
-                results[i].max, results[i].sum/results[i].count, 
-                i < nresults-1 ? ", " : "");
+    char buf[1024 * 16];
+    buf[0] = '{';
+    char *b = buf+1;
+    for (int i = 0; i < nresults; i++) {
+        b += sprintf(b, "%s=%.1f/%.1f/%.1f%s", results[i].city, results[i].min,
+                 results[i].sum / results[i].count, results[i].max,
+                 i < nresults - 1 ? ", " : "}");
     }
-    puts("}");
+    *b = 0x0;
+    puts(buf);
 }
 
 void main(int argc, const char **argv) {
@@ -92,14 +93,11 @@ void main(int argc, const char **argv) {
 
         char *pos = buffer;
         while(pos < &buffer[ret]) {
-            int delim = 0;
-            while(*(pos+delim) != ';') {
-                delim++;
-            }
-            *(pos+delim) = 0x0;
             char *city = pos;
     
-            int h = hash(city, SEED) & (HCAP-1);
+            int h = 0;
+            int delim = 0;
+            hash(&delim, &h, city);
             int c = map[h];
             while (c != -1 && memcmp(results[c].city, city, (size_t)delim) != 0) {
                 h = (h + 1) & (HCAP - 1);
@@ -111,6 +109,7 @@ void main(int argc, const char **argv) {
 
             if(c < 0) {
                 memcpy(results[nresults].city, city, (size_t)delim);
+                results[nresults].city[delim] = '\0';
                 results[nresults].min = curr;
                 results[nresults].max = curr;
                 results[nresults].sum = curr;

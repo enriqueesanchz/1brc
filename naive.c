@@ -74,7 +74,7 @@ int main(int argc, const char **argv) {
     putchar('{');
     for(int i=0; i<nresults; i++) {
         printf("%s=%.1f/%.1f/%.1f%s", results[i].city, results[i].min, 
-                results[i].max, results[i].sum/results[i].count, 
+                results[i].sum / results[i].count, results[i].max,
                 i < nresults-1 ? ", " : "");
     }
     puts("}");
